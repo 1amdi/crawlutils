@@ -1,0 +1,101 @@
+HttpPost参数的提交方式，除了常见的form表单，还有requestpayload,后者主要用于上传文件，当然也有比较奇葩的只是传递字符串参数。
+
+
+对于requestpayload方式的参数传递方法，这里主要是针对httpclient4
+
+
+request payload 示例：
+
+------WebKitFormBoundary1gVJEw6AthoAO5Ot
+Content-Disposition: form-data; name="pageCount"
+
+2
+------WebKitFormBoundary1gVJEw6AthoAO5Ot
+Content-Disposition: form-data; name="page"
+
+2
+------WebKitFormBoundary1gVJEw6AthoAO5Ot
+Content-Disposition: form-data; name="szsf"
+
+11200000000
+------WebKitFormBoundary1gVJEw6AthoAO5Ot
+Content-Disposition: form-data; name="fjdm"
+
+11250000000
+------WebKitFormBoundary1gVJEw6AthoAO5Ot--
+
+
+
+/**
+     *上述示例数据中的------WebKitFormBoundary1gVJEw6AthoAO5Ot 即为boundry
+     * 针对参数 为 Request Payload的问题
+     * 发送一个 Post 请求, 使用指定的字符集编码.
+     *
+     * @param url
+     * @param headers     请求头
+     * @param params      request payload中除了边界及其他属性之外的参数map
+     * @param boundry     request payload中的边界字符串
+     * @param mimeType    媒体类型通常是通过 HTTP 协议，由 Web 服务器告知浏览器的，更准确地说，是通过 Content-Type 来表示的
+     *                    例如 application/xml "application/x-www-form-urlencoded"，即为content-type值
+     * @param charset     编码
+     * @param connTimeout 建立链接超时时间,毫秒.
+     * @param readTimeout 响应超时时间,毫秒.
+     * @return ResponseBody, 使用指定的字符集编码.
+     * @throws ConnectTimeoutException 建立链接超时异常
+     * @throws SocketTimeoutException  响应超时
+     * @throws Exception
+     */
+
+
+    public static String postPayload(String url, Map<String, String> headers,Map<String, String> params,String boundry,Integer connTimeout, Integer readTimeout) {
+        HttpPost post = new HttpPost(url);
+        if (headers != null && !headers.isEmpty()) {
+            for (Entry<String, String> entry : headers.entrySet()) {
+                post.addHeader(entry.getKey(), entry.getValue());
+            }
+        }
+
+
+        MultipartEntityBuilder reqEntity = MultipartEntityBuilder.create();
+        reqEntity.setBoundary(boundry);
+        reqEntity.setContentType(ContentType.MULTIPART_FORM_DATA.withCharset("utf-8"));
+        reqEntity.setCharset(Charset.forName("utf-8"));
+//        MultipartEntity reqEntity = new MultipartEntity();
+        // 设置参数
+        Builder customReqConf = RequestConfig.custom();
+        if (connTimeout != null) {
+            customReqConf.setConnectTimeout(connTimeout);
+        }
+        if (readTimeout != null) {
+            customReqConf.setSocketTimeout(readTimeout);
+        }
+        post.setConfig(customReqConf.build());
+        if (params != null && !params.isEmpty()) {
+            for (Entry<String, String> entry : params.entrySet()) {
+
+                StringBody comment = null;
+                try {
+                    comment = new StringBody(entry.getValue(), Charset.forName("utf-8"));
+                    reqEntity.addPart(entry.getKey(), comment);
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        post.setEntity(reqEntity.build());
+        HttpResponse resp = null;
+        String result = null;
+        try {
+            resp = HttpClientBuilder.create().build().execute(post);
+            StatusLine statusLine = resp.getStatusLine();
+            if (statusLine.getStatusCode() == 200) {
+                result = IOUtils.toString(resp.getEntity().getContent(), charset);
+                System.out.println(result);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return result;
+    }
